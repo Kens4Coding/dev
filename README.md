@@ -1,3 +1,2 @@
-# Kenneth Fletcher Public Python Development
+# Kenneth J. Fletcher Public Python Development
 Python test code and general playground.
-
