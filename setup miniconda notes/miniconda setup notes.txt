@@ -1,0 +1,62 @@
+Some notes for setting up miniconda and a start on git/github 
+
+**** THIS DID NOT WORK? ************************************************************************************************
+download commands executed from powershell:
+Invoke-WebRequest -Uri "https://repo.anaconda.com/miniconda/Miniconda3-latest-Windows-x86_64.exe" -OutFile ".\miniconda.exe"
+Start-Process -FilePath ".\miniconda.exe" -ArgumentList "/S" -Wait
+del .\miniconda.exe
+
+*** so just downloaded the latest miniconda installer
+note: running as administrator, but for "just me"
+options I checked:
+left create shortcuts checked
+did not check add installation to my PATH env var
+did not check register miniconda as my default python 3.13
+did check clear package cache upon completion
+
+
+had to update conda version with:
+conda update -n base -c defaults conda
+
+
+started with Python 3.13, 
+install file was py313_25.11.1-1 (64-bit) Setup
+
+
+whoa, running this:
+conda install numpy pandas matplotlib scikit-learn scipy statsmodels
+
+jumped me up to python 3.14.2 !!!!!!  but base is still 3.13.11
+
+so want to rename my environemnt, it cant be active so...
+
+conda deactivate (should now be in base)
+conda rename --name <old name> <new name>
+in this case....
+conda rename py313-env py314-env
+also have to fix the shortcut too:
+
+Shortcuts are located here
+C:\ProgramData\Microsoft\Windows\Start Menu\Programs\Anaconda (miniconda3)
+
+cloned the default short cut to:
+Anaconda PowerShell Prompt - py314-env
+
+edit its target to:
+%WINDIR%\System32\WindowsPowerShell\v1.0\powershell.exe -ExecutionPolicy ByPass -NoExit -Command "& 'C:\Users\ken\miniconda3\shell\condabin\conda-hook.ps1' ; conda activate 'C:\Users\ken\miniconda3\envs\py314-env' "
+
+*********** also want to get github working
+first update git on my computer
+git --version
+git update-git-for-Windows
+
+
+
+
+
+
+
+
+
+
+
