@@ -1,14 +1,18 @@
 # Author Kenneth J. Fletcher
 
 DEBUG_FLAG = True
-JUST_LIST_AI_AGENTS = True
+JUST_LIST_AI_AGENTS = False # if true list values for PRO_AGENT/CON_AGENT
 MODELS_URL = "https://openrouter.ai/api/v1/models"
+CHAT_URL = "https://openrouter.ai/api/v1/chat/completions"
 
-# these are both Mixture-of-Experts architecture models
+# currently these are both Mixture-of-Experts architecture models
 PRO_AGENT = 'google/gemma-4-26b-a4b-it:free'
 CON_AGENT = 'openai/gpt-oss-20b:free'
 
-DEBATE_STATEMENT = 'The United States should invest heavily in space exploration'
+DEBATE_STATEMENT = \
+    'The United States should invest heavily in space exploration.'
+
+MAX_LOOPS = 10 # how many back and forths between agents
 
 # Import libraries
 import os
@@ -25,7 +29,9 @@ if not DEBUG_FLAG:
 
 # Don't request too often (limits for free access)
 # also, this will run at a human interface speed
-HTTP_THROTTLE = 5 # pause between HTTP GET requests in seconds
+HTTP_THROTTLE = 1 # pause between HTTP GET requests in seconds
+
+global API_KEY
 
 # output txt to the log file and return txt value so that
 # all calls to this function can be used to log the values part of
@@ -71,6 +77,25 @@ def http_get(url):
             retry -= 1
     return ret
 
+def http_post(url,body,headers):
+    ret = None
+    retry = 2 # retry once
+    while retry > 0:
+        try:
+            timeout = urllib3.Timeout(connect=5.0,read=20.0)
+            ret = http.request('POST',url,body=body,headers=headers,timeout=timeout)
+            if HTTP_THROTTLE > 0.0:
+                time.sleep(HTTP_THROTTLE)
+        except Exception as e:
+            o(e,lbl='HTTP POST Exception:',echo_print=True)
+            o(url,lbl='URL:',echo_print=True)
+        else:
+            break
+        finally:
+            retry -= 1
+    return ret
+
+
 def response_to_dict(response):
     ret = None
     try:
@@ -80,40 +105,31 @@ def response_to_dict(response):
         o(response.data,lbl='Response Data:',echo_print=True)
     return ret
 
+def ask(agent,session,question):
+    header = {
+        "Authorization":  "Bearer " + API_KEY,
+        "Content-Type": "application/json"    
+    }
 
-'''
-def ask(url,question):
-    response = ''
-  
+    data = {
+        "model" : agent,
+        "session_id" : session,
+        "messages" : [
+            {
+                "role" : "user",
+                "content" : question
+            }
+        ]
+    }
 
-    response = http_get(url)
-    
+    response = http_post(CHAT_URL,json.dumps(data),header)
     if response == None:
-        raise ValueError('no response in read_chunk url:' + url)
-    response_dict = response_to_dict(response)
-    response_data = response_dict['response']['data']
-    if max_record == -1:
-        max_record = int(response_dict['response']['total'])
-        o(max_record,lbl='record count:')
-    if len(response_data) == 0:
-        raise ValueError('no data read_chunk url: ' + url)
-    if current_record == 0: # write column headers
-        lines.append(parse_row(response_data[0],True) )
-    for row in response_data:
-        lines.append(parse_row(row,False))
-    return lines , max_record
-'''
-
-
-
-
-
-
-
-
-
-
-
+        raise ValueError('no response in ask: session ' + str(session))
+    response = response_to_dict(response)
+    ret = response['choices'][0]['message']['content']
+    if DEBUG_FLAG:
+        o(ret,lbl='Ask Returning')
+    return ret
 
 
 
@@ -123,7 +139,7 @@ def ask(url,question):
 
 # log file name is "executing scripts name" + _log.txt
 LOG_FILE_NAME = sys.argv[0].replace('.py','') + '_log.txt'
-log_file = open(LOG_FILE_NAME , 'w' ,encoding='utf-8')  # mode 'a' append, 'w' overwrite
+log_file = open(LOG_FILE_NAME , 'w' ,encoding='utf-8')  
 
 print('Logging output to: ' + LOG_FILE_NAME)
 
@@ -131,7 +147,8 @@ start_script_time = dt.datetime.now()
 o("script start time = " + str(start_script_time),echo_print=True)
 
 # My API Key to access openrouter.ai is in a windows enviroment variable
-API_KEY = 'api_key=' + os.environ.get('OPENROUTER_API_KEY', \
+
+API_KEY = os.environ.get('OPENROUTER_API_KEY', \
     default='No Environmnet Variable Set. This will blow up!')
 
 if API_KEY == 'api_key=No Environmnet Variable Set. This will blow up!':
@@ -140,17 +157,17 @@ if API_KEY == 'api_key=No Environmnet Variable Set. This will blow up!':
     print('*********************************')
     print('This script uses an API key that must exist in an environment')
     print('variable named OPENROUTER_API_KEY ')
-    print('You can obtain your own key for free openrouter.ai')
+    print('You can obtain your own key for free at openrouter.ai')
     sys.exit(0)
 
-response = http_get(MODELS_URL)
-
-if response == None:
-    raise ValueError('no response reading models')
-response_dict = response_to_dict(response)
-response_list = response_dict['data']
 
 if JUST_LIST_AI_AGENTS:
+    response = http_get(MODELS_URL)
+
+    if response == None:
+        raise ValueError('no response reading models')
+    response_dict = response_to_dict(response)
+    response_list = response_dict['data']
     o('Free AI Agents:')
     for agent in response_list:
         if agent['id'].endswith(':free'):
@@ -160,11 +177,23 @@ if JUST_LIST_AI_AGENTS:
             o('')
 else:
     # lets debate
-    o('Debate Statement:')
+    o('Debate Statement:')  
     o(DEBATE_STATEMENT)
-    pro_session = random.randint(10001,10000001)
-    con_session = random.randint(10001,10000001)
+    pro_session = str(random.randint(10001,10000001))
+    con_session = str(random.randint(10001,10000001))
     assert pro_session != con_session,'wow, got same random numbers, start over'
+
+    # prime each agent with the initial question
+    pro_response = ask(PRO_AGENT,pro_session, \
+        'Why is this statement a good idea?\n' + DEBATE_STATEMENT)
+    con_response = ask(CON_AGENT,con_session, \
+        'Why is this statement not a good idea?\n' + DEBATE_STATEMENT)
+
+    # for loop in range(MAX_LOOPS):
+
+
+
+
     
 
 
