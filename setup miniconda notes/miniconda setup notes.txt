@@ -52,6 +52,28 @@ git update-git-for-Windows
 
 
 
+8/12/2026 can I run terminal instead of powershell to get multiple tabs
+with conda environment?
+this is wt.exe and should not need path to run it
+
+or just figure out how to setup powershell profile so that clicking + to
+add another tab will start a powershell in same conda config
+
+get back to this.
+
+8/13/26 notes:
+powershell profiles need to be created for end users to modify.
+under the sheets they are defined (and apparently creating these files will
+override this) in a settings.json file that I found here:
+C:\Users\ken\AppData\Local\Packages\Microsoft.WindowsTerminal_8wekyb3d8bbwe\LocalState
+
+
+
+
+
+
+
+
 
 
 
